@@ -92,6 +92,12 @@ func healthCheck(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
+func logRequest(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("%s %s", r.Method, r.URL.Path)
+		next.ServeHTTP(w, r)
+	})
+}
 
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -122,5 +128,5 @@ func main() {
 
 	fmt.Printf("starting server at port 8001\n")
 	fmt.Printf("open frontend at http://localhost:8001/\n")
-	log.Fatal(http.ListenAndServe(":8001", corsMiddleware(r)))
+	log.Fatal(http.ListenAndServe(":8001", logRequest(corsMiddleware(r))))
 }
