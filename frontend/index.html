@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Movies App</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; color: #333; }
+
+    header {
+      background: #1a1a2e; color: white;
+      padding: 18px 32px; font-size: 22px; font-weight: bold;
+      letter-spacing: 1px;
+    }
+
+    .container { max-width: 900px; margin: 32px auto; padding: 0 16px; }
+
+    .card {
+      background: white; border-radius: 10px;
+      padding: 24px; margin-bottom: 24px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .card h2 { margin-bottom: 16px; font-size: 18px; color: #1a1a2e; }
+
+    .form-row { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }
+    .form-row input {
+      flex: 1; min-width: 150px;
+      padding: 10px 12px; border: 1px solid #ddd;
+      border-radius: 6px; font-size: 14px;
+    }
+    .form-row input:focus { outline: none; border-color: #4a90e2; }
+
+    .btn {
+      padding: 10px 20px; border: none; border-radius: 6px;
+      cursor: pointer; font-size: 14px; font-weight: 600;
+      transition: opacity 0.2s;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn-primary { background: #4a90e2; color: white; }
+    .btn-success { background: #27ae60; color: white; }
+    .btn-danger  { background: #e74c3c; color: white; font-size: 12px; padding: 6px 12px; }
+    .btn-warning { background: #f39c12; color: white; font-size: 12px; padding: 6px 12px; }
+
+    #message {
+      padding: 10px 16px; border-radius: 6px;
+      margin-bottom: 16px; display: none; font-size: 14px;
+    }
+    #message.success { background: #d4edda; color: #155724; display: block; }
+    #message.error   { background: #f8d7da; color: #721c24; display: block; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th {
+      background: #1a1a2e; color: white;
+      padding: 12px; text-align: left;
+    }
+    td { padding: 12px; border-bottom: 1px solid #eee; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #f9f9f9; }
+
+    .actions { display: flex; gap: 8px; }
+
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.5); z-index: 100;
+      align-items: center; justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: white; border-radius: 10px;
+      padding: 28px; width: 400px; max-width: 95%;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+    }
+    .modal h2 { margin-bottom: 16px; color: #1a1a2e; }
+    .modal input {
+      width: 100%; padding: 10px 12px;
+      border: 1px solid #ddd; border-radius: 6px;
+      font-size: 14px; margin-bottom: 10px;
+    }
+    .modal input:focus { outline: none; border-color: #4a90e2; }
+    .modal-actions { display: flex; gap: 10px; margin-top: 8px; }
+
+    #no-movies { text-align: center; color: #888; padding: 20px; display: none; }
+  </style>
+</head>
+<body>
+
+<header>🎬 Movies Manager</header>
+
+<div class="container">
+  <div id="message"></div>
+
+  <!-- Add Movie Form -->
+  <div class="card">
+    <h2>Add New Movie</h2>
+    <div class="form-row">
+      <input id="title"     type="text" placeholder="Title" />
+      <input id="isbn"      type="text" placeholder="ISBN" />
+    </div>
+    <div class="form-row">
+      <input id="firstname" type="text" placeholder="Director First Name" />
+      <input id="lastname"  type="text" placeholder="Director Last Name" />
+    </div>
+    <button class="btn btn-success" onclick="createMovie()">+ Add Movie</button>
+  </div>
+
+  <!-- Movie List -->
+  <div class="card">
+    <h2>All Movies</h2>
+    <table id="movies-table">
+      <thead>
+        <tr>
+          <th>ID</th><th>Title</th><th>ISBN</th><th>Director</th><th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="movies-body"></tbody>
+    </table>
+    <p id="no-movies">No movies found.</p>
+  </div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <h2>Edit Movie</h2>
+    <input id="edit-title"     type="text" placeholder="Title" />
+    <input id="edit-isbn"      type="text" placeholder="ISBN" />
+    <input id="edit-firstname" type="text" placeholder="Director First Name" />
+    <input id="edit-lastname"  type="text" placeholder="Director Last Name" />
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="submitUpdate()">Save</button>
+      <button class="btn" style="background:#eee;color:#333" onclick="closeModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const API = '/movies';
+  let editingId = null;
+
+  function showMsg(text, type) {
+    const el = document.getElementById('message');
+    el.textContent = text;
+    el.className = type;
+    setTimeout(() => el.className = '', 3000);
+  }
+
+  async function fetchMovies() {
+    try {
+      const res = await fetch(API);
+      const movies = await res.json();
+      const tbody = document.getElementById('movies-body');
+      const noMovies = document.getElementById('no-movies');
+      tbody.innerHTML = '';
+
+      if (!movies || movies.length === 0) {
+        noMovies.style.display = 'block';
+        return;
+      }
+      noMovies.style.display = 'none';
+
+      movies.forEach(m => {
+        const dir = m.director ? `${m.director.firstname} ${m.director.lastname}` : '—';
+        tbody.innerHTML += `
+          <tr>
+            <td>${m.id}</td>
+            <td>${m.title}</td>
+            <td>${m.isbn}</td>
+            <td>${dir}</td>
+            <td class="actions">
+              <button class="btn btn-warning" onclick="openEdit('${m.id}','${m.title}','${m.isbn}','${m.director?.firstname||''}','${m.director?.lastname||''}')">Edit</button>
+              <button class="btn btn-danger"  onclick="deleteMovie('${m.id}')">Delete</button>
+            </td>
+          </tr>`;
+      });
+    } catch(e) {
+      showMsg('Failed to fetch movies. Is the server running on port 8001?', 'error');
+    }
+  }
+
+  async function createMovie() {
+    const title     = document.getElementById('title').value.trim();
+    const isbn      = document.getElementById('isbn').value.trim();
+    const firstname = document.getElementById('firstname').value.trim();
+    const lastname  = document.getElementById('lastname').value.trim();
+
+    if (!title || !isbn || !firstname || !lastname) {
+      showMsg('Please fill in all fields.', 'error'); return;
+    }
+    const res = await fetch(API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, isbn, director: { firstname, lastname } })
+    });
+    if (res.ok) {
+      showMsg('Movie added!', 'success');
+      ['title','isbn','firstname','lastname'].forEach(id => document.getElementById(id).value = '');
+      fetchMovies();
+    } else {
+      showMsg('Failed to add movie.', 'error');
+    }
+  }
+
+  async function deleteMovie(id) {
+    if (!confirm('Delete this movie?')) return;
+    const res = await fetch(`${API}/${id}`, { method: 'DELETE' });
+    if (res.ok) { showMsg('Movie deleted.', 'success'); fetchMovies(); }
+    else showMsg('Failed to delete.', 'error');
+  }
+
+  function openEdit(id, title, isbn, firstname, lastname) {
+    editingId = id;
+    document.getElementById('edit-title').value     = title;
+    document.getElementById('edit-isbn').value      = isbn;
+    document.getElementById('edit-firstname').value = firstname;
+    document.getElementById('edit-lastname').value  = lastname;
+    document.getElementById('modal').classList.add('open');
+  }
+
+  function closeModal() {
+    document.getElementById('modal').classList.remove('open');
+    editingId = null;
+  }
+
+  async function submitUpdate() {
+    const title     = document.getElementById('edit-title').value.trim();
+    const isbn      = document.getElementById('edit-isbn').value.trim();
+    const firstname = document.getElementById('edit-firstname').value.trim();
+    const lastname  = document.getElementById('edit-lastname').value.trim();
+
+    if (!title || !isbn || !firstname || !lastname) {
+      showMsg('Please fill in all fields.', 'error'); return;
+    }
+    const res = await fetch(`${API}/${editingId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, isbn, director: { firstname, lastname } })
+    });
+    if (res.ok) {
+      showMsg('Movie updated!', 'success');
+      closeModal(); fetchMovies();
+    } else {
+      showMsg('Failed to update.', 'error');
+    }
+  }
+
+  // Close modal on backdrop click
+  document.getElementById('modal').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+  });
+
+  fetchMovies();
+</script>
+</body>
+</html>

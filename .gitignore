@@ -1,0 +1,17 @@
+# Compiled binary
+/apiproject
+/main
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
