@@ -88,6 +88,11 @@ func updateMovie(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func healthCheck(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -111,7 +116,7 @@ func main() {
 	r.HandleFunc("/movies", createMovie).Methods("POST")
 	r.HandleFunc("/movies/{id}", updateMovie).Methods("PUT")
 	r.HandleFunc("/movies/{id}", deleteMovie).Methods("DELETE")
-
+	r.HandleFunc("/health", healthCheck).Methods("GET")
 	// Serve frontend static files (index.html at http://localhost:8001/)
 	r.PathPrefix("/").Handler(http.FileServer(http.Dir("frontend")))
 
